@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="http://code.jquery.com/jquery-2.2.4.min.js" integrity="sha256-BbhdlvQf/xTY9gja0Dq3HiwQF8LaCRTXxZKRutelT44=" crossorigin="anonymous"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.5.7/angular.min.js"></script>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS" crossorigin="anonymous"></script>
+<script>
+    var app = angular.module("App", []);
+
+    app.config(function($httpProvider, $interpolateProvider) {
+        $httpProvider.defaults.xsrfCookieName = 'csrftoken';
+        $httpProvider.defaults.xsrfHeaderName = 'X-CSRFToken';
+    });
+
+    // Add .format to String
+    if (!String.prototype.format) {
+        String.prototype.format = function() {
+            var args = arguments;
+            if (args[0] && args[0].constructor === Array) {
+                args = args[0];
+                if (args.length === 0) {
+                    return String(this);
+                }
+            }
+            return this.replace(/{(\d+)}/g, function(match, number) {
+                return typeof args[number] != 'undefined'
+                    ? args[number]
+                    : match
+                ;
+            });
+        };
+    }
+
+    app.filter('format', function() {
+        return function(input) {
+            var args = Array.from(arguments);
+            return args[0].format(args.slice(1));
+        };
+    });
+
+    function flattenObj(obj) {
+        function flatten(dict, parent) {
+            var keys = [];
+            var values = [];
+
+            for (var key in dict) {
+                if (typeof dict[key] === 'object') {
+                    var result = flatten(dict[key], parent ? parent + '.' + key : key);
+                    keys = keys.concat(result.keys);
+                    values = values.concat(result.values);
+                }
+                else {
+                    keys.push(parent ? parent + '.' + key : key);
+                    values.push(dict[key]);
+                }
+            }
+
+            return {
+                keys: keys,
+                values: values
+            };
+        }
+
+        var result = flatten(obj);
+        var flatDict = {};
+
+        for (var i = 0, end = result.keys.length; i < end; ++i) {
+            flatDict[result.keys[i]] = result.values[i];
+        }
+
+        return flatDict;
+    };
+
+    app.controller('AppController', ['$scope', '$http', function($scope, $http) {
+        $scope.people = '';
+        $scope.peopleCount = 0;
+        $http.get('/workingWith')
+        .then(function(response) {
+            $scope.peopleCount = response.data.length;
+            $scope.people = [];
+            for (var i = 0; i < $scope.peopleCount && i < 5; ++i) {
+                $scope.people.push(response.data[i]);
+            }
+        });
+
+        $scope.files = '';
+        $scope.fileCount = 0;
+        $http.get('/trendingAround')
+        .then(function(response) {
+            $scope.fileCount = response.data.length;
+            $scope.files = [];
+            for (var i = 0; i < $scope.fileCount && i < 5; ++i) {
+                $scope.files.push(response.data[i]);
+            }
+        });
+        
+        $scope.myFiles = '';
+        $scope.myFilesCount = 0;
+        $http.get('/my_files')
+        .then(function(response) {
+            $scope.myFilesCount = response.data.length;
+            $scope.myFiles = [];
+            for (var i = 0; i < $scope.myFilesCount && i < 5; ++i) {
+                $scope.myFiles.push(response.data[i]);
+            }
+        });
+
+        $scope.emails = '';
+        $scope.emailCount = 0;
+        $http.get('/emails')
+        .then(function(response) {
+            $scope.emailCount = response.data.value.length;
+            $scope.emails = [];
+            for (var i = 0; i < $scope.emailCount && i < 5; ++i) {
+                $scope.emails.push(response.data.value[i]);
+            }
+        });
+    }]);
+    $(function () {
+        $('[data-toggle="popover"]').popover()
+    }); 
+</script>
+</head>
+<body ng-app="App" ng-controller="AppController">
+{% verbatim %}
+<nav class="navbar navbar-default">
+    <div class="container-fluid">
+        <!-- Brand and toggle get grouped for better mobile display -->
+            <h1 class="text-center">Welcome back! Work sweet work :-)</h1>
+    </div>
+</nav>
+<div class="container">
+    <div class="row">
+        <div class="col-md-6">
+            <h1>People and conversations</h1>
+            <h3>Catch up with <span class='badge'>{{ peopleCount }}</span></h3>
+            <div class="list-group">
+                <a href="mailto:{{person.email}}" class="list-group-item" ng-repeat="person in people">
+                    <h4 class="list-group-item-heading">{{ person.name }}</h4>
+                    <p class="list-group-item-text">{{ person.email }}</p>
+                </a>
+            </div>
+            <a ng-hide="peopleCount <= 5" href="#">View more...</a>
+        </div>
+        <div class="col-md-6">
+            <h1>Documents</h1>
+            <h3>Your files that were changed <span class='badge'>{{ myFilesCount }}</span></h3>
+            <div class="list-group">
+                <a href="{{ file.webUrl }}?web=1" class="list-group-item" ng-repeat="file in myFiles">
+                    <h4 class="list-group-item-heading">{{ file.name }}</h4>
+                    <p class="list-group-item-text">Last modified by {{ file.lastModifiedBy.user.displayName}} on {{ file.lastModifiedDateTime | date }}</p>
+                </a>
+            </div>
+            <a ng-hide="myFilesCount <= 5" href="#">View more...</a>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-6">
+            <h3>Important emails you may have missed <span class='badge'>{{ emailCount }}</span></h3>
+            <div class="list-group">
+                <a href="{{ file.url }}?web=1" class="list-group-item" ng-repeat="email in emails">
+                    <h4 class="list-group-item-heading">{{ email.subject }}</h4>
+                    <p class="list-group-item-text">From {{ email.sender.emailAddress.name }} on {{ email.receivedDateTime | date }}</p>
+                </a>
+            </div>
+            <a ng-hide="emailCount <= 5" href="#">View more...</a>
+        </div>
+        <div class="col-md-6">
+            <h3>Files that were trending <span class='badge'>{{ fileCount }}</span></h3>
+            <div class="list-group">
+                <a href="{{ file.url }}?web=1" class="list-group-item" ng-repeat="file in files">
+                    <h4 class="list-group-item-heading">{{ file.name }}</h4>
+                    <p class="list-group-item-text">Last modified {{ file.modified | date }}</p>
+                </a>
+            </div>
+            <a ng-hide="fileCount <= 5" href="#">View more...</a>
+        </div>
+    </div>
+</div>
+{% endverbatim %}
+</body>
+</html>
